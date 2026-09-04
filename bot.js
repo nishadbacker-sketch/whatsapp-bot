@@ -1,6 +1,7 @@
 const http = require('http');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
+const axios = require('axios');
 
 let currentQr = '';
 
@@ -27,6 +28,56 @@ http.createServer((req, res) => {
 }).listen(port, () => {
   console.log(`Server listening on port ${port}`);
 });
+
+// Helper function to query Shopify Admin API for Order Details
+async function getShopifyOrderStatus(orderNumberClean) {
+    const storeDomain = process.env.SHOPIFY_STORE_DOMAIN || 'shopexme.myshopify.com';
+    const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
+
+    if (!accessToken) {
+        return "⚠️ Order lookup is currently undergoing maintenance. Please contact support.";
+    }
+
+    try {
+        const response = await axios.get(
+            `https://${storeDomain}/admin/api/2024-07/orders.json?name=%23${orderNumberClean}&status=any`,
+            {
+                headers: {
+                    'X-Shopify-Access-Token': accessToken,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        const orders = response.data.orders;
+        if (!orders || orders.length === 0) {
+            return `❌ Order #${orderNumberClean} was not found. Please double-check your order number and try again.`;
+        }
+
+        const order = orders[0];
+        const financialStatus = order.financial_status ? order.financial_status.toUpperCase() : 'N/A';
+        const fulfillmentStatus = order.fulfillment_status ? order.fulfillment_status.toUpperCase() : 'UNFULFILLED';
+        const trackingUrl = order.fulfillments?.[0]?.tracking_url || null;
+
+        let statusMessage = 
+            `📦 *Order Details for #${orderNumberClean}*\n\n` +
+            `🔹 *Payment Status:* ${financialStatus}\n` +
+            `🔹 *Fulfillment Status:* ${fulfillmentStatus}\n` +
+            `🔹 *Total Amount:* ₹${order.total_price}\n`;
+
+        if (trackingUrl) {
+            statusMessage += `\n🚚 *Track Your Package:* ${trackingUrl}`;
+        } else {
+            statusMessage += `\n⏳ Your order is being processed for dispatch. Tracking details will update soon!`;
+        }
+
+        return statusMessage;
+
+    } catch (error) {
+        console.error('Shopify API Error:', error?.response?.data || error.message);
+        return "⚠️ Unable to fetch order status right now. Please try again later.";
+    }
+}
 
 async function connectToWhatsApp() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -59,8 +110,6 @@ async function connectToWhatsApp() {
                 setTimeout(() => {
                     connectToWhatsApp();
                 }, 3000);
-            } else {
-                console.log('Logged out.');
             }
         } else if (connection === 'open') {
             currentQr = '';
@@ -68,7 +117,6 @@ async function connectToWhatsApp() {
         }
     });
 
-    // Handle Incoming Messages
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type !== 'notify') return;
 
@@ -100,28 +148,33 @@ async function connectToWhatsApp() {
                     `2️⃣ *Online Order / ऑनलाइन ऑर्डर 🔒:*\n` +
                     `👉 https://www.shopexme.com/`;
 
-                // 1. Send Main Text with Bilingual Form
                 await sock.sendMessage(senderJid, { text: offerAndFormMessage });
 
-                // 2. Send Image 1 (English Guide)
                 await sock.sendMessage(senderJid, {
                     image: { url: 'https://cdn.shopify.com/s/files/1/0958/8991/6205/files/IMG-4903.png?v=1788530733' },
                     caption: '📌 User Guide & Specifications (English)'
                 });
 
-                // 3. Send Image 2 (Hindi Guide)
                 await sock.sendMessage(senderJid, {
                     image: { url: 'https://cdn.shopify.com/s/files/1/0958/8991/6205/files/IMG-4904.png?v=1788530733' },
                     caption: '📌 उपयोगकर्ता गाइड और विशेषताएँ (Hindi)'
                 });
             } 
+            // --- Order Status Inquiry Trigger ---
+            else if (text.startsWith('#') || /^#?\d{4,6}$/.test(text)) {
+                const orderNumberClean = text.replace('#', '').trim();
+                await sock.sendMessage(senderJid, { text: `🔍 Checking status for Order #${orderNumberClean}...` });
+                
+                const statusMessage = await getShopifyOrderStatus(orderNumberClean);
+                await sock.sendMessage(senderJid, { text: statusMessage });
+            }
             // --- Standard Menu / Greeting ---
             else if (['hi', 'hello', 'hey', 'menu', 'start'].includes(text)) {
                 const welcomeMenu = 
                     `👋 *Welcome to Shopex Support!*\n\n` +
                     `Reply with an option:\n` +
                     `1️⃣ View Store Catalog\n` +
-                    `2️⃣ Check Order Status\n` +
+                    `2️⃣ Check Order Status (Send your Order ID e.g., #1001)\n` +
                     `3️⃣ Store Details\n` +
                     `4️⃣ Talk to Support`;
 
@@ -129,12 +182,17 @@ async function connectToWhatsApp() {
             } 
             else if (text === '1') {
                 await sock.sendMessage(senderJid, { 
-                    text: `🛍️ Explore our catalog at https://shopexme.com` 
+                    text: `🛍️ Explore our catalog at https://www.shopexme.com` 
+                });
+            } 
+            else if (text === '2') {
+                await sock.sendMessage(senderJid, { 
+                    text: `📦 Please reply with your order number (for example: *#1001* or *1001*).` 
                 });
             } 
             else {
                 await sock.sendMessage(senderJid, { 
-                    text: `Type *hi* or *menu* to see options.` 
+                    text: `Type *hi* or *menu* to see options, or send your Order ID (e.g. #1001).` 
                 });
             }
         }
