@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@open-wa/driver-puppeteer": "^5.0.0-alpha.8",
+    "@open-wa/wa-automate": "^4.76.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
+    "pino": "^10.3.1",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
