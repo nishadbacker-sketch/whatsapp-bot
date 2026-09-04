@@ -85,30 +85,34 @@ async function connectToWhatsApp() {
 
             // --- Meta Ad Lead Auto-Reply ---
             if (text.includes('hello! can i get more info on this') || text.includes('can i get more info')) {
-                const detailsText = 
-                    `👋 *Thank you for reaching out to Shopex!*\n\n` +
-                    `🚰 *Stainless Steel Faucet Storage Caddy / Organizer*\n\n` +
-                    `💰 *Price:* ₹199 Only\n` +
+                const offerAndFormMessage = 
+                    `Hi! 😊 Thank you for your interest / आपकी रुचि के लिए धन्यवाद!\n\n` +
+                    `🚰 *Stainless Steel Faucet Storage Caddy / Organizer*\n` +
+                    `💰 *Special Price:* ₹199 Only\n` +
                     `🚚 *Delivery:* Free Delivery\n` +
                     `💵 *Payment:* Cash on Delivery Available\n\n` +
-                    `✅ Durable Stainless Steel Design\n` +
-                    `✅ Rust Resistant & Easy to Install\n` +
-                    `✅ Fits Round Faucet Pipes (up to 2.5 cm diameter)\n\n` +
-                    `👇 *Check the size, compatibility & installation guide below (English & Hindi):*`;
+                    `1️⃣ *Cash on Delivery (COD) Order:* Please reply with / कृपया भेजें:\n` +
+                    `• *Name / नाम:*\n` +
+                    `• *Mobile Number / मोबाइल नंबर:*\n` +
+                    `• *Full Address / पूरा पता:*\n` +
+                    `• *Pincode / पिनकोड:*\n` +
+                    `• *Quantity / मात्रा:*\n\n` +
+                    `2️⃣ *Online Order / ऑनलाइन ऑर्डर 🔒:*\n` +
+                    `👉 https://www.shopexme.com/`;
 
-                // 1. Send Text Details & Price
-                await sock.sendMessage(senderJid, { text: detailsText });
+                // 1. Send Main Text with Bilingual Form
+                await sock.sendMessage(senderJid, { text: offerAndFormMessage });
 
-                // 2. Send First Image (English Guide)
+                // 2. Send Image 1 (English Guide)
                 await sock.sendMessage(senderJid, {
                     image: { url: 'https://cdn.shopify.com/s/files/1/0958/8991/6205/files/IMG-4903.png?v=1788530733' },
-                    caption: '📌 Faucet Storage Caddy - User Guide & Specifications (English)'
+                    caption: '📌 User Guide & Specifications (English)'
                 });
 
-                // 3. Send Second Image (Hindi Guide)
+                // 3. Send Image 2 (Hindi Guide)
                 await sock.sendMessage(senderJid, {
                     image: { url: 'https://cdn.shopify.com/s/files/1/0958/8991/6205/files/IMG-4904.png?v=1788530733' },
-                    caption: '📌 फ़ॉसेट स्टोरेज कैडी - उपयोगकर्ता गाइड और विशेषताएँ (Hindi)'
+                    caption: '📌 उपयोगकर्ता गाइड और विशेषताएँ (Hindi)'
                 });
             } 
             // --- Standard Menu / Greeting ---
