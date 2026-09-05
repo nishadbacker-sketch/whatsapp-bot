@@ -40,13 +40,10 @@ async function getShopifyOrderStatus(orderNumberClean) {
     }
 
     try {
+        // Query Shopify Admin API using name filter
         const response = await axios.get(
-            `https://${storeDomain}/admin/api/2024-07/orders.json`,
+            `https://${storeDomain}/admin/api/2024-07/orders.json?name=%23${orderNumberClean}&status=any`,
             {
-                params: {
-                    name: `#${orderNumberClean}`,
-                    status: 'any'
-                },
                 headers: {
                     'X-Shopify-Access-Token': accessToken,
                     'Content-Type': 'application/json'
@@ -54,7 +51,22 @@ async function getShopifyOrderStatus(orderNumberClean) {
             }
         );
 
-        const orders = response.data.orders;
+        let orders = response.data.orders;
+
+        // Fallback search if # string match yields empty array
+        if (!orders || orders.length === 0) {
+            const fallbackResponse = await axios.get(
+                `https://${storeDomain}/admin/api/2024-07/orders.json?name=${orderNumberClean}&status=any`,
+                {
+                    headers: {
+                        'X-Shopify-Access-Token': accessToken,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            orders = fallbackResponse.data.orders;
+        }
+
         if (!orders || orders.length === 0) {
             return `❌ Order #${orderNumberClean} was not found. Please double-check your order number and try again.`;
         }
@@ -79,9 +91,14 @@ async function getShopifyOrderStatus(orderNumberClean) {
         return statusMessage;
 
     } catch (error) {
-        console.error('Shopify API Error:', error?.response?.data || error.message);
+        console.error('Shopify API Error Status:', error?.response?.status);
+        console.error('Shopify API Error Details:', JSON.stringify(error?.response?.data || error.message));
+        
+        if (error?.response?.status === 401 || error?.response?.status === 403) {
+            return "⚠️ Access Token invalid or missing permissions. Check read_orders scope in Shopify Admin.";
+        }
         if (error?.response?.status === 404) {
-            return "⚠️ Could not connect to Shopify store. Please check store domain or access token configuration.";
+            return "⚠️ Could not connect to Shopify API endpoint. Verify Admin API access token permissions.";
         }
         return "⚠️ Unable to fetch order status right now. Please try again later.";
     }
