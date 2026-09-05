@@ -122,7 +122,9 @@ async function connectToWhatsApp() {
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true
+        printQRInTerminal: true,
+        syncFullHistory: false,
+        shouldSyncHistoryMessage: () => false
     });
 
     sock.ev.on('creds.update', saveCreds);
